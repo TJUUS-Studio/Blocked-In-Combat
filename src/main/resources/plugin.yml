@@ -1,0 +1,15 @@
+name: Blocked-In-Combat
+main: me.chengzhify.blockedInCombat.BlockedInCombat
+version: 1.0.0
+api-version: '1.21'
+authors: [ChengZhiFy]
+description: Blocked In Combat minigame
+
+commands:
+  bic:
+    description: Main command of Blocked-In-Combat
+
+permissions:
+  bic.admin:
+    description: Admin permission for Blocked-In-Combat
+    default: op
