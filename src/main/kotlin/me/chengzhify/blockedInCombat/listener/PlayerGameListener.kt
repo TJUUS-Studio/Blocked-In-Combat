@@ -11,6 +11,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.block.LeavesDecayEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.PlayerDeathEvent
@@ -48,6 +49,11 @@ class PlayerGameListener(private val gameManager: GameManager) : Listener {
 
         event.isCancelled = true
         player.sendMessage(prefix + ChatColor.RED + "当前状态下不能丢弃指南针。")
+    }
+
+    @EventHandler
+    fun onLeavesUpdate(event: LeavesDecayEvent) {
+        event.isCancelled = true
     }
 
     @EventHandler

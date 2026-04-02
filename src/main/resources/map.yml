@@ -12,7 +12,7 @@ map:
     length: 5
     height: 4
 
-resources:
+blocks:
   cobblestone:
     type: COBBLESTONE
     chance: 8.0

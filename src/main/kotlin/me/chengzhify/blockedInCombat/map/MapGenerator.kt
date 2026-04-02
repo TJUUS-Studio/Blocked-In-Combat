@@ -28,8 +28,8 @@ class MapGenerator(private val configManager: ConfigManager) {
         val width: Int = arenaWidth
         val length: Int = arenaLength
         val height: Int = arenaHeight
-        val minY: Int = map.getInt("minimum_y")
-        val fallbackBlock = searchMaterial(map.getString("fallback_block"), Material.STONE)
+        val minY: Int = map.getInt("map.y")
+        val fallbackBlock = searchMaterial(map.getString("map.fallback_block"), Material.STONE)
 
         val minX = -width / 2
         val minZ = -length / 2

@@ -10,6 +10,7 @@ import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitTask
 import org.bukkit.scoreboard.DisplaySlot
+import sun.awt.windows.awtLocalization
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -41,6 +42,10 @@ class ScoreboardService(
         }
     }
 
+    fun refreshNow() {
+        updateAll()
+    }
+
     private fun updateAll() {
         if (gameManager.state == GameState.ENDING) {
             return
@@ -58,9 +63,8 @@ class ScoreboardService(
         objective.displaySlot = DisplaySlot.SIDEBAR
 
         var score = 14
-        objective.getScore(ChatColor.GRAY.toString() + LocalDate.now().format(DATE_FORMATTER) + ChatColor.DARK_GRAY + " Minigame-BIC").score = score--
+        objective.getScore(ChatColor.GRAY.toString() + LocalDate.now().format(DATE_FORMATTER) + ChatColor.DARK_GRAY + " TJUUS").score = score--
         objective.getScore(ChatColor.DARK_GRAY.toString() + " ").score = score--
-        objective.getScore(ChatColor.GRAY.toString() + "" + ChatColor.AQUA + "TJUUS 每周小游戏").score = score--
 
         if (gameManager.state == GameState.LOBBY || gameManager.state == GameState.STARTING) {
             val waiting = Bukkit.getOnlinePlayers().size
@@ -68,34 +72,31 @@ class ScoreboardService(
             objective.getScore(ChatColor.GRAY.toString() + "等待人数: " + ChatColor.GREEN + waiting + ChatColor.GRAY + "/" + ChatColor.AQUA + min).score = score--
 
             if (gameManager.state == GameState.STARTING) {
-                objective.getScore(ChatColor.GRAY.toString() + "开局倒计时: " + ChatColor.YELLOW + gameManager.lobbyCountdownLeft + "s").score = score--
+                val left = maxOf(gameManager.lobbyCountdownLeft, 0)
+                objective.getScore(ChatColor.GRAY.toString() + "开局倒计时: " + ChatColor.YELLOW + left + "秒").score = score--
             } else {
                 objective.getScore(ChatColor.GRAY.toString() + "状态: " + ChatColor.YELLOW + "等待玩家加入").score = score--
             }
-
-            objective.getScore(ChatColor.DARK_GRAY.toString() + "  ").score = score--
             val current = teamManager.getTeam(player)
             val name = current?.coloredName ?: (ChatColor.GRAY.toString() + "未选择")
             objective.getScore(ChatColor.GRAY.toString() + "我的队伍: " + name).score = score--
+            objective.getScore(ChatColor.DARK_GRAY.toString() + "  ").score = score--
             objective.getScore(ChatColor.YELLOW.toString() + "tju.edu.cn").score = score
             player.scoreboard = board
             return
         }
 
-        objective.getScore(ChatColor.GRAY.toString() + "剩余时间: " + ChatColor.YELLOW + gameManager.timeLeftSeconds + "s").score = score--
+        objective.getScore(ChatColor.GRAY.toString() + "剩余时间: " + ChatColor.YELLOW + gameManager.timeLeftSeconds + "秒").score = score--
         objective.getScore(ChatColor.DARK_GRAY.toString() + "   ").score = score--
 
         for (team in GameTeam.entries) {
+            val current = teamManager.getTeam(player)
+            val locator = if (current == team) ChatColor.GRAY.toString() + "   我" else ""
             val alive = teamManager.getAliveCount(team, gameManager.eliminatedPlayers)
             val status = if (alive > 0) ChatColor.GREEN.toString() + alive else ChatColor.RED.toString() + "❌"
-            objective.getScore(team.color.toString() + team.displayName + ChatColor.GRAY + ": " + status).score = score--
+            objective.getScore(team.color.toString() + team.coloredName + ChatColor.GRAY + ": " + status + locator).score = score--
         }
-
-        objective.getScore(ChatColor.DARK_GRAY.toString() + "    ").score = score--
-
-        val current = teamManager.getTeam(player)
-        val name = current?.coloredName ?: (ChatColor.GRAY.toString() + "未选择")
-        objective.getScore(ChatColor.GRAY.toString() + "我的队伍: " + name).score = score--
+        objective.getScore(ChatColor.DARK_GRAY.toString() + "  ").score = score--
         objective.getScore(ChatColor.YELLOW.toString() + "tju.edu.cn").score = score
 
         player.scoreboard = board

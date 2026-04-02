@@ -102,21 +102,26 @@ class GameManager(
                 lobbyCountdownTask = null
                 launchGame()
                 broadcast(TextUtil.transC("&7游戏已强制开启!"))
+                return
             }
             executor.sendMessage(TextUtil.transC("&c倒计时正在进行! 如果需要强制开启, 请使用 /bic forcestart"))
         }
 
         val minPlayers = configManager.settings().getInt("settings.min-players", 2)
 
-        if (!force && Bukkit.getOnlinePlayers().size <= minPlayers) {
+        if (!force && Bukkit.getOnlinePlayers().size < minPlayers) {
             executor.sendMessage(TextUtil.transC("&c当前在线玩家不足 $minPlayers 人, 无法开始游戏!"))
+            return
         }
 
         if (force) {
+            if (Bukkit.getOnlinePlayers().size < minPlayers) {
+                executor.sendMessage(TextUtil.transC("&c当前在线玩家不足 $minPlayers 人, 无法开始游戏!"))
+                return
+            }
             launchGame()
             broadcast(TextUtil.transC("&7游戏已强制开启!"))
         }
-
         startLobbyCountdown()
 
         executor.sendMessage(TextUtil.transC("&c倒计时已开启。"))
@@ -137,9 +142,13 @@ class GameManager(
         lobbyCountdownSeconds = lobbyCountdownLeft
 
         state = GameState.STARTING
-        // TODO: 计分板和 BossBar 状态修改。
+
+        bossBarService.start()
+        scoreboardService.start()
 
         broadcast("&e游戏将在 &a$lobbyCountdownSeconds &e秒后开始!")
+        bossBarService.refreshNow()
+        scoreboardService.refreshNow()
         lobbyCountdownTask = Bukkit.getScheduler().runTaskTimer(plugin, Runnable {
             if (state != GameState.STARTING) {
                 return@Runnable
@@ -150,26 +159,35 @@ class GameManager(
                 return@Runnable
             }
 
+            lobbyCountdownLeft--
+            bossBarService.refreshNow()
+            scoreboardService.refreshNow()
+
             if (lobbyCountdownLeft <= 0) {
+                lobbyCountdownLeft = 0
+                broadcast("&e游戏将在 &a0 &e秒后开始!")
+                bossBarService.refreshNow()
+                scoreboardService.refreshNow()
                 cancelTask(lobbyCountdownTask)
                 lobbyCountdownTask = null
                 launchGame()
                 return@Runnable
             }
 
-            if (lobbyCountdownLeft <= 5 || lobbyCountdownLeft % 10 == 0) {
+            if ((lobbyCountdownLeft in 1..5) || lobbyCountdownLeft % 10 == 0) {
                 broadcast("&e游戏将在 &a$lobbyCountdownLeft &e秒后开始!")
             }
-
-            lobbyCountdownLeft--
-        }, 0L, 20L)
+        }, 20L, 20L)
     }
 
     private fun stopCountdown() {
         cancelTask(lobbyCountdownTask)
         lobbyCountdownTask = null
         state = GameState.LOBBY
-        // TODO: 计分板和 BossBar 状态修改。
+
+        bossBarService.stop()
+        scoreboardService.start()
+
         broadcast("&c倒计时已取消!")
     }
 
@@ -182,6 +200,7 @@ class GameManager(
             plugin.logger.log(Level.INFO, "创建世界失败, 停止倒计时。")
             return
         }
+
         // 清除之前的缓存数据
         state = GameState.PLAYING
         eliminatedPlayersMutable.clear()
@@ -198,38 +217,35 @@ class GameManager(
         teamManager.prepareTeams(players)
 
         // 地图生成
-        mapGenerator.generateArena(world)
+            mapGenerator.generateArena(world)
 
-        val mapWidth = mapGenerator.arenaWidth
-        val mapLength = mapGenerator.arenaLength
-        val mapHeight = mapGenerator.arenaHeight
-        val y = configManager.map().getInt("map.y", 64)
-        val baseSize = configManager.map().getInt("map.team-base-size", 6)
-        val maxRespawns = settings.getInt("settings.respawn.max-respawns-per-player", 1)
+            val mapWidth = mapGenerator.arenaWidth
+            val mapLength = mapGenerator.arenaLength
+            val mapHeight = mapGenerator.arenaHeight
+            val y = configManager.map().getInt("map.y", 64)
+            val baseSize = configManager.map().getInt("map.team-base-size", 6)
+            val maxRespawns = settings.getInt("settings.respawn.max-respawns-per-player", 1)
 
-        for (player in players) {
-            resetPlayer(player)
-            val team = teamManager.getTeam(player)
-            if (team != null) {
-                player.teleport(teamManager.getTeamSpawn(world, team, mapWidth, mapLength, mapHeight, y, baseSize))
+            for (player in players) {
+                resetPlayer(player)
+                val team = teamManager.getTeam(player)
+                if (team != null) {
+                    player.teleport(teamManager.getTeamSpawn(world, team, mapWidth, mapLength, mapHeight, y, baseSize))
+                }
+                respawnTickets[player.uniqueId] = maxOf(maxRespawns, 0)
+                killCount[player.uniqueId] = 0
+                survivalStartMs[player.uniqueId] = System.currentTimeMillis()
             }
-            respawnTickets[player.uniqueId] = maxOf(maxRespawns, 0)
-            killCount[player.uniqueId] = 0
-            survivalStartMs[player.uniqueId] = System.currentTimeMillis()
-        }
+
+        processPotions(players)
+
 
         world.pvp = false
         schedulePvpEnable(world, settings.getInt("settings.pvp-delay-seconds", 120))
 
         gameDurationSeconds = settings.getInt("settings.game-duration-seconds", 300)
         timeLeftSeconds = gameDurationSeconds
-        scheduleGameTimer()
         runStartTitleCountdown(players)
-
-        //TODO: 计分板和 BossBar 状态修改。
-
-
-
     }
 
     fun stopGame(reason: String) {
@@ -271,7 +287,7 @@ class GameManager(
         broadcast(reason)
 
         val delay = maxOf(1, configManager.settings().getInt("settings.settlement-return-seconds", 8))
-        broadcast("&e结算中，将在 {seconds}秒 后返回大厅。")
+        broadcast("&e结算中，将在 ${delay.toString()} 秒后返回大厅.")
 
         settlementTask = Bukkit.getScheduler().runTaskLater(plugin, Runnable { finishMatchCleanup() }, delay * 20L)
     }
@@ -363,8 +379,8 @@ class GameManager(
         val selector = ItemStack(Material.COMPASS)
         val meta = selector.itemMeta
         if (meta != null) {
-            meta.setDisplayName("&6队伍选择器 &7(右键打开)")
-            meta.lore = listOf("&7选择 红/蓝/绿/黄 队伍", "&e请在开局前完成选择")
+            meta.setDisplayName(TextUtil.transC("&6队伍选择器 &7(右键打开)"))
+            meta.lore = listOf(TextUtil.transC("&7选择 红/蓝/绿/黄 队伍"), TextUtil.transC("&e请在开局前完成选择"))
             selector.itemMeta = meta
         }
         player.inventory.setItem(4, selector)
@@ -411,14 +427,20 @@ class GameManager(
             }
 
             if (left[0] <= 0) {
+                scheduleGameTimer()
+                bossBarService.start()
+                scoreboardService.start()
+
                 for (player in players) {
                     if (!player.isOnline) {
                         continue
                     }
-                    player.sendTitle("&e&l开始游戏!", "&7祝你好运", 0, 20, 10)
+                    player.sendTitle(TextUtil.transC("&e&l开始游戏!"), TextUtil.transC("&7祝你好运"), 0, 20, 10)
                     player.playSound(player.location, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f)
                 }
-                broadcast("&a战斗开始!")
+                bossBarService.refreshNow()
+                scoreboardService.refreshNow()
+                broadcast(TextUtil.transC("&a战斗开始!"))
                 cancelTask(startTitleCountdownTask)
                 startTitleCountdownTask = null
                 return@Runnable
@@ -428,7 +450,7 @@ class GameManager(
                 if (!player.isOnline) {
                     continue
                 }
-                player.sendTitle("&e&l${left[0]}", "&7地图已生成, 请做好准备", 0, 20, 0)
+                player.sendTitle(TextUtil.transC("&e&l${left[0]}"), TextUtil.transC("&7地图已生成, 请做好准备"), 0, 20, 0)
                 player.playSound(player.location, Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 1.0f)
             }
 
@@ -449,7 +471,7 @@ class GameManager(
         }
 
         if (best == null || bestCount <= 0) {
-            stopGame("&e本局平局: 没有队伍存活.")
+            stopGame(TextUtil.transC("&e本局平局: 没有队伍存活."))
             return
         }
 
@@ -465,7 +487,9 @@ class GameManager(
             }
 
             timeLeftSeconds--
-            if (timeLeftSeconds <= 0) {
+            bossBarService.refreshNow()
+            scoreboardService.refreshNow()
+            if (timeLeftSeconds < 0) {
                 decideWinnerByAliveCount()
             }
         }, 20L, 20L)
@@ -608,7 +632,18 @@ class GameManager(
         }
     }
 
-
+    private fun processPotions(players: Collection<Player>) {
+        for (player in players) {
+            if (state == GameState.PLAYING) {
+                player.addPotionEffect(PotionEffect(PotionEffectType.NIGHT_VISION, Int.MAX_VALUE, 0, false, false, true))
+                player.addPotionEffect(PotionEffect(PotionEffectType.SATURATION, Int.MAX_VALUE, 0, false, false, true))
+            }
+            if (state == GameState.ENDING) {
+                player.removePotionEffect(PotionEffectType.NIGHT_VISION)
+                player.removePotionEffect(PotionEffectType.SATURATION)
+            }
+        }
+    }
 
     private fun applyGhostSpectatorState(player: Player) {
         clearSpectatorEffects(player)
@@ -684,6 +719,40 @@ class GameManager(
         player.foodLevel = 20
         player.saturation = 20f
         player.inventory.clear()
+    }
+
+    fun forceCleanupOnDisable() {
+        cancelTask(gameTimerTask)
+        gameTimerTask = null
+        cancelTask(pvpEnableTask)
+        pvpEnableTask = null
+        cancelTask(lobbyCountdownTask)
+        lobbyCountdownTask = null
+        cancelTask(settlementTask)
+        settlementTask = null
+        cancelTask(startTitleCountdownTask)
+        startTitleCountdownTask = null
+        if (this::bossBarService.isInitialized) {
+            bossBarService.stop()
+        }
+        if (this::scoreboardService.isInitialized) {
+            scoreboardService.stop()
+        }
+
+        val gameWorld = currentGameWorld
+        if (gameWorld != null) {
+            deleteMatchWorld(gameWorld)
+        }
+
+        currentGameWorldName = null
+        teamManager.clearGameData()
+        eliminatedPlayersMutable.clear()
+        pendingRespawns.clear()
+        respawnTickets.clear()
+        killCount.clear()
+        survivalStartMs.clear()
+        eliminatedAtMs.clear()
+        state = GameState.LOBBY
     }
 
     fun enforceGhostSpectatorState(player: Player?) {

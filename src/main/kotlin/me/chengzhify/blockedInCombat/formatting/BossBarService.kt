@@ -49,6 +49,10 @@ class BossBarService(
         bossBar?.addPlayer(player)
     }
 
+    fun refreshNow() {
+        update()
+    }
+
     private fun update() {
         val bar = bossBar ?: return
 

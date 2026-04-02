@@ -7,7 +7,8 @@ description: Blocked In Combat minigame
 
 commands:
   bic:
-    description: Main command of Blocked-In-Combat
+    description: Main command of BlockedInCombat
+    usage: /bic <start|forcestart|stop|team|status|menu|setlobby|reload>
 
 permissions:
   bic.admin:
