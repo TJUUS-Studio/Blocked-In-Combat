@@ -142,6 +142,22 @@ class MapGenerator(private val configManager: ConfigManager) {
         }
     }
 
+    fun isInsideGameArea(location: Location): Boolean {
+        val dimensions = readMapDimensions(configManager.map())
+        val width = dimensions[0]
+        val depth = dimensions[1]
+        val height = dimensions[2]
+        val minX = -width / 2
+        val minY = configManager.map().getInt("map.y", 64)
+        val minZ = -depth / 2
+        val x = location.blockX
+        val y = location.blockY
+        val z = location.blockZ
+        return x >= minX && x < minX + width &&
+                y >= minY && y < minY + height &&
+                z >= minZ && z < minZ + depth
+    }
+
     private fun searchMaterial(type: String?, default: Material): Material {
         if (type == null) return default;
         val material = Material.matchMaterial(type.uppercase())

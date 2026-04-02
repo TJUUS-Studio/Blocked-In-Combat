@@ -49,6 +49,12 @@ class ConfigManager(private val plugin: JavaPlugin) {
         }
     }
 
+    fun reloadAll() {
+        configs.clear()
+        configFiles.clear()
+        loadAllConfigurations()
+    }
+
     fun getConfig(fileName: String): FileConfiguration? = configs[fileName]
 
     fun map(): FileConfiguration = getConfig("map.yml")!!

@@ -9,7 +9,6 @@ import me.chengzhify.blockedInCombat.team.GameTeam
 import me.chengzhify.blockedInCombat.team.TeamManager
 import me.chengzhify.blockedInCombat.util.TextUtil
 import org.bukkit.Bukkit
-import org.bukkit.Bukkit.broadcast
 import org.bukkit.GameMode
 import org.bukkit.Location
 import org.bukkit.Material
@@ -21,6 +20,7 @@ import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import org.bukkit.scheduler.BukkitTask
 import java.io.IOException
@@ -32,8 +32,6 @@ import java.util.logging.Level
 import java.util.stream.Stream
 import kotlin.collections.set
 import kotlin.compareTo
-import kotlin.text.contains
-import kotlin.text.toFloat
 import kotlin.use
 
 class GameManager(
@@ -49,7 +47,6 @@ class GameManager(
     private val killCount: MutableMap<UUID, Int> = HashMap()
     private val survivalStartMs: MutableMap<UUID, Long> = HashMap()
     private val eliminatedAtMs: MutableMap<UUID, Long> = HashMap()
-    private val resourceRegenTasks: MutableMap<String, BukkitTask> = HashMap()
 
     var state: GameState = GameState.LOBBY
         private set
@@ -81,7 +78,9 @@ class GameManager(
         get() = currentGameWorldName?.let { Bukkit.getWorld(it) }
 
     fun initializeUI() {
-        //TODO: 计分板和 Boss Bar
+        bossBarService = BossBarService(plugin, this)
+        scoreboardService = ScoreboardService(plugin, this, teamManager)
+        scoreboardService.start()
     }
 
     /*
@@ -517,6 +516,230 @@ class GameManager(
 
         currentGameWorldName = name
         return world
+    }
+
+    fun handleLethalHit(victim: Player, killer: Player?) {
+        if (state != GameState.PLAYING) {
+            return
+        }
+
+        val victimId = victim.uniqueId
+        if (eliminatedPlayersMutable.contains(victimId) || pendingRespawns.contains(victimId)) {
+            return
+        }
+
+        if (killer != null && killer.uniqueId != victimId) {
+            killCount.merge(killer.uniqueId, 1, Int::plus)
+        }
+
+        eliminatedPlayersMutable.add(victimId)
+        pendingRespawns.remove(victimId)
+        eliminatedAtMs.putIfAbsent(victimId, System.currentTimeMillis())
+        applyGhostSpectatorState(victim)
+
+        val deadTeam = teamManager.getTeam(victim)
+        if (deadTeam != null && teamManager.getAliveCount(deadTeam, eliminatedPlayersMutable) == 0) {
+            broadcast("&e队伍 ${deadTeam.coloredName} &e已被淘汰!")
+        }
+
+        checkVictoryAfterElimination()
+    }
+
+    private fun checkVictoryAfterElimination() {
+        val aliveTeams = teamManager.getAliveTeams(eliminatedPlayersMutable)
+        if (aliveTeams.size <= 1) {
+            if (aliveTeams.isEmpty()) {
+                stopGame("&e本局平局: 没有队伍存活.")
+            } else {
+                val winner = aliveTeams.first()
+                stopGame("&6胜利队伍: ${winner.coloredName}")
+            }
+        }
+    }
+    fun handlePlayerDeath(player: Player, killer: Player?) {
+        if (state != GameState.PLAYING) {
+            return
+        }
+
+        if (eliminatedPlayersMutable.contains(player.uniqueId)) {
+            return
+        }
+
+        if (killer != null && killer.uniqueId != player.uniqueId) {
+            killCount.merge(killer.uniqueId, 1, Int::plus)
+        }
+
+        val delay = maxOf(1, configManager.settings().getInt("settings.respawn.delay-seconds", 3))
+        val left = respawnTickets[player.uniqueId] ?: 0
+
+        if (left > 0) {
+            respawnTickets[player.uniqueId] = left - 1
+            pendingRespawns.add(player.uniqueId)
+            player.sendMessage("&e你将在 ${delay.toString()} 秒后重生.")
+
+            Bukkit.getScheduler().runTaskLater(plugin, Runnable {
+                val online = Bukkit.getPlayer(player.uniqueId)
+                if (online != null && online.isOnline && online.isDead && pendingRespawns.contains(player.uniqueId)) {
+                    online.spigot().respawn()
+                }
+            }, delay * 20L)
+
+            return
+        }
+
+        eliminatedPlayersMutable.add(player.uniqueId)
+        pendingRespawns.remove(player.uniqueId)
+        eliminatedAtMs.putIfAbsent(player.uniqueId, System.currentTimeMillis())
+        applyGhostSpectatorState(player)
+
+        val deadTeam = teamManager.getTeam(player)
+        if (deadTeam != null && teamManager.getAliveCount(deadTeam, eliminatedPlayersMutable) == 0) {
+            broadcast("&e队伍 ${deadTeam.coloredName} &e已被淘汰!")
+        }
+
+        val aliveTeams = teamManager.getAliveTeams(eliminatedPlayersMutable)
+        if (aliveTeams.size <= 1) {
+            if (aliveTeams.isEmpty()) {
+                stopGame("&e本局平局: 没有队伍存活.")
+            } else {
+                val winner = aliveTeams.first()
+                stopGame("&6胜利队伍：${winner.coloredName}")
+            }
+        }
+    }
+
+
+
+    private fun applyGhostSpectatorState(player: Player) {
+        clearSpectatorEffects(player)
+        player.gameMode = GameMode.SURVIVAL
+        player.health = player.maxHealth
+        player.foodLevel = 20
+        player.saturation = 20f
+        player.inventory.clear()
+        player.addPotionEffect(PotionEffect(PotionEffectType.INVISIBILITY, Int.MAX_VALUE, 0, false, false, false))
+        player.isInvulnerable = true
+        player.isCollidable = false
+        player.allowFlight = true
+        player.isFlying = true
+        giveSpectatorTeleportItem(player)
+        player.sendMessage("&7你已进入旁观状态.")
+    }
+
+    private fun giveSpectatorTeleportItem(player: Player) {
+        val teleporter = ItemStack(Material.COMPASS)
+        val meta = teleporter.itemMeta
+        if (meta != null) {
+            meta.setDisplayName("&b旁观传送器 &7(右键打开)")
+            meta.lore = listOf("&7一级菜单选择队伍", "&7二级菜单选择玩家传送")
+            teleporter.itemMeta = meta
+        }
+        player.inventory.setItem(0, teleporter)
+    }
+
+    fun handlePlayerJoin(player: Player) {
+        if (state == GameState.STARTING || state == GameState.PLAYING) {
+            bossBarService.addPlayer(player)
+        }
+
+        if (state == GameState.PLAYING) {
+            currentGameWorld?.spawnLocation?.let { player.teleport(it) }
+            clearSpectatorEffects(player)
+            player.gameMode = GameMode.SPECTATOR
+            player.sendMessage("&e游戏进行中, 你已以旁观者身份加入.")
+            return
+        }
+
+        resolveLobbySpawn()?.let { player.teleport(it) }
+        resetLobbyPlayer(player)
+        tryAutoStartLobbyCountdown()
+    }
+
+    fun resolveRespawnLocation(player: Player): Location {
+        val gameWorld = currentGameWorld
+        if (gameWorld == null) {
+            val lobby = resolveLobbyWorld(configManager.settings())
+            return lobby?.spawnLocation ?: player.location
+        }
+
+        val mapWidth = mapGenerator.arenaWidth
+        val mapLength = mapGenerator.arenaLength
+        val mapHeight = mapGenerator.arenaHeight
+        val y = configManager.map().getInt("map.y", 64)
+        val baseSize = configManager.map().getInt("map.team-base-size", 6)
+        val team = teamManager.getTeam(player)
+        if (team == null) {
+            return gameWorld.spawnLocation
+        }
+        return teamManager.getTeamSpawn(gameWorld, team, mapWidth, mapLength, mapHeight, y, baseSize)
+    }
+
+    fun isPendingRespawn(uuid: UUID): Boolean = pendingRespawns.contains(uuid)
+
+    fun finalizeRespawn(player: Player) {
+        pendingRespawns.remove(player.uniqueId)
+        clearSpectatorEffects(player)
+        player.gameMode = GameMode.SURVIVAL
+        player.health = player.maxHealth
+        player.foodLevel = 20
+        player.saturation = 20f
+        player.inventory.clear()
+    }
+
+    fun enforceGhostSpectatorState(player: Player?) {
+        if (player == null) {
+            return
+        }
+        applyGhostSpectatorState(player)
+    }
+
+    fun clampSpectatorToArena(to: Location): Location {
+        val width = mapGenerator.arenaWidth
+        val length = mapGenerator.arenaLength
+        val height = mapGenerator.arenaHeight
+        val minY = configManager.map().getInt("map.y", 64)
+
+        val minX = -width / 2
+        val minZ = -length / 2
+        val maxX = minX + width - 1
+        val maxZ = minZ + length - 1
+        val maxY = minY + height - 1
+
+        val x = to.x.coerceIn(minX + 0.2, maxX + 0.8)
+        val y = to.y.coerceIn(minY + 0.2, maxY + 0.8)
+        val z = to.z.coerceIn(minZ + 0.2, maxZ + 0.8)
+        return Location(to.world, x, y, z, to.yaw, to.pitch)
+    }
+
+    private fun tryAutoStartLobbyCountdown() {
+        if (state != GameState.LOBBY) {
+            return
+        }
+
+        val minPlayers = configManager.settings().getInt("settings.min-players", 2)
+        if (Bukkit.getOnlinePlayers().size < minPlayers) {
+            return
+        }
+
+        startLobbyCountdown()
+    }
+
+    fun handlePlayerQuit(player: Player) {
+        if (state == GameState.PLAYING) {
+            if (pendingRespawns.contains(player.uniqueId) || !eliminatedPlayersMutable.contains(player.uniqueId)) {
+                eliminatedPlayersMutable.add(player.uniqueId)
+                pendingRespawns.remove(player.uniqueId)
+                eliminatedAtMs.putIfAbsent(player.uniqueId, System.currentTimeMillis())
+                checkVictoryAfterElimination()
+            }
+            return
+        }
+        teamManager.removePlayer(player.uniqueId)
+
+        val minPlayers = configManager.settings().getInt("settings.min-players", 2)
+        if (state == GameState.STARTING && Bukkit.getOnlinePlayers().size < minPlayers) {
+            stopCountdown()
+        }
     }
 
     private fun cancelTask(task: BukkitTask?) {
