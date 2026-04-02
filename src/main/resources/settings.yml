@@ -1,0 +1,21 @@
+settings:
+  lobby-world: world
+  lobby-spawn:
+    x: 0.5
+    y: 64.0
+    z: 0.5
+    yaw: 0.0
+    pitch: 0.0
+  match-world-prefix: bic_
+  min-players: 2
+  team-max-size: 0
+  team-balance-max-gap: 1
+  lobby-countdown-seconds: 20
+  pvp-delay-seconds: 60
+  game-duration-seconds: 900
+  settlement-return-seconds: 8
+  friendly-fire: false
+  resource-respawn-seconds: 15
+  respawn:
+    delay-seconds: 3
+    max-respawns-per-player: 1

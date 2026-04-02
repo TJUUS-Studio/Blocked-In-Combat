@@ -1,0 +1,219 @@
+map:
+  size: "32x32x32"
+  width: 32
+  length: 32
+  height: 32
+  y: 64
+  floor: STONE
+  fallback_block: COBBLESTONE
+  team-base-size: 6
+  spawn-room:
+    width: 5
+    length: 5
+    height: 4
+
+resources:
+  cobblestone:
+    type: COBBLESTONE
+    chance: 8.0
+  stone:
+    type: STONE
+    chance: 5.0
+  andesite:
+    type: ANDESITE
+    chance: 3.0
+  diorite:
+    type: DIORITE
+    chance: 3.0
+  granite:
+    type: GRANITE
+    chance: 3.0
+  deepslate:
+    type: DEEPSLATE
+    chance: 3.0
+  tuff:
+    type: TUFF
+    chance: 2.0
+  calcite:
+    type: CALCITE
+    chance: 1.0
+  pointed-dripstone:
+    type: POINTED_DRIPSTONE
+    chance: 1.0
+  sand:
+    type: SAND
+    chance: 2.0
+  gravel:
+    type: GRAVEL
+    chance: 2.0
+  clay:
+    type: CLAY
+    chance: 1.0
+  moss:
+    type: MOSS_BLOCK
+    chance: 1.0
+
+  coal-ore:
+    type: COAL_ORE
+    chance: 7.0
+  iron-ore:
+    type: IRON_ORE
+    chance: 5.0
+  copper-ore:
+    type: COPPER_ORE
+    chance: 4.0
+  gold-ore:
+    type: GOLD_ORE
+    chance: 3.0
+  redstone-ore:
+    type: REDSTONE_ORE
+    chance: 2.5
+  lapis-ore:
+    type: LAPIS_ORE
+    chance: 1.5
+  diamond-ore:
+    type: DIAMOND_ORE
+    chance: 1.0
+  emerald-ore:
+    type: EMERALD_ORE
+    chance: 0.5
+  quartz-ore:
+    type: NETHER_QUARTZ_ORE
+    chance: 1.0
+
+  oak-log:
+    type: OAK_LOG
+    chance: 1.5
+  spruce-log:
+    type: SPRUCE_LOG
+    chance: 2.0
+  birch-log:
+    type: BIRCH_LOG
+    chance: 2.0
+  jungle-log:
+    type: JUNGLE_LOG
+    chance: 1.5
+  acacia-log:
+    type: ACACIA_LOG
+    chance: 1.5
+  dark-oak-log:
+    type: DARK_OAK_LOG
+    chance: 1.5
+  mangrove-log:
+    type: MANGROVE_LOG
+    chance: 1.0
+  cherry-log:
+    type: CHERRY_LOG
+    chance: 1.0
+  bamboo-block:
+    type: BAMBOO_BLOCK
+    chance: 1.0
+  stripped-oak-log:
+    type: STRIPPED_OAK_LOG
+    chance: 1.0
+  oak-leaves:
+    type: OAK_LEAVES
+    chance: 2.0
+  spruce-leaves:
+    type: SPRUCE_LEAVES
+    chance: 1.0
+  birch-leaves:
+    type: BIRCH_LEAVES
+    chance: 1.0
+  jungle-leaves:
+    type: JUNGLE_LEAVES
+    chance: 1.0
+  acacia-leaves:
+    type: ACACIA_LEAVES
+    chance: 1.0
+  dark-oak-leaves:
+    type: DARK_OAK_LEAVES
+    chance: 1.0
+  mangrove-leaves:
+    type: MANGROVE_LEAVES
+    chance: 1.0
+  cherry-leaves:
+    type: CHERRY_LEAVES
+    chance: 1.0
+  azalea-leaves:
+    type: AZALEA_LEAVES
+    chance: 1.0
+
+  crafting-table:
+    type: CRAFTING_TABLE
+    chance: 1.5
+  furnace:
+    type: FURNACE
+    chance: 1.5
+  blast-furnace:
+    type: BLAST_FURNACE
+    chance: 0.8
+  smoker:
+    type: SMOKER
+    chance: 0.8
+  anvil:
+    type: ANVIL
+    chance: 0.2
+  chest:
+    type: CHEST
+    chance: 0.7
+  barrel:
+    type: BARREL
+    chance: 0.7
+  loom:
+    type: LOOM
+    chance: 0.3
+  cartography-table:
+    type: CARTOGRAPHY_TABLE
+    chance: 0.2
+  smithing-table:
+    type: SMITHING_TABLE
+    chance: 0.2
+  fletching-table:
+    type: FLETCHING_TABLE
+    chance: 0.2
+  stonecutter:
+    type: STONECUTTER
+    chance: 0.4
+  grindstone:
+    type: GRINDSTONE
+    chance: 0.2
+  melon:
+    type: MELON
+    chance: 0.8
+  pumpkin:
+    type: PUMPKIN
+    chance: 0.8
+  hay-block:
+    type: HAY_BLOCK
+    chance: 0.6
+  cactus:
+    type: CACTUS
+    chance: 0.5
+  obsidian:
+    type: OBSIDIAN
+    chance: 0.5
+  netherrack:
+    type: NETHERRACK
+    chance: 0.4
+  soul-sand:
+    type: SOUL_SAND
+    chance: 0.3
+  mud:
+    type: MUD
+    chance: 0.4
+  oak-planks:
+    type: OAK_PLANKS
+    chance: 1.0
+  spruce-planks:
+    type: SPRUCE_PLANKS
+    chance: 0.8
+  bricks:
+    type: BRICKS
+    chance: 0.5
+  glass:
+    type: GLASS
+    chance: 0.4
+  terracotta:
+    type: TERRACOTTA
+    chance: 0.3

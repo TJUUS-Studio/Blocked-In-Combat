@@ -1,0 +1,4 @@
+package me.chengzhify.blockedInCombat.listener
+
+class CombatListener {
+}

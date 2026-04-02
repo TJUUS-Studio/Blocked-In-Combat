@@ -1,0 +1,13 @@
+teams:
+  red:
+    display-name: "红队"
+    color: "RED"
+  blue:
+    display-name: "蓝队"
+    color: "BLUE"
+  green:
+    display-name: "绿队"
+    color: "GREEN"
+  yellow:
+    display-name: "黄队"
+    color: "YELLOW"
